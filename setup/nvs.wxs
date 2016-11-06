@@ -53,6 +53,7 @@
       <ComponentGroupRef Id="NvsLibFiles"/>
       <ComponentGroupRef Id="NvsDocFiles"/>
       <ComponentGroupRef Id="NMProgressFiles"/>
+      <ComponentGroupRef Id="NMKeypressFiles"/>
       <ComponentRef Id="EnvironmentPathPerUser" />
       <ComponentRef Id="EnvironmentPathPerMachine" />
 

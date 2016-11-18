@@ -63,7 +63,7 @@
     </PropertyGroup>
     <ItemGroup>
       <FilesToSign Include="$(TargetDir)\$(TargetName)$(TargetExt)">
-        <Authenticode>MicrosoftSHA2</Authenticode>
+        <Authenticode>Microsoft400</Authenticode>
       </FilesToSign>
     </ItemGroup>
     <HeatDirectory ToolPath="$(WixToolPath)" Directory="..\lib" PreprocessorVariable="var.NvsLibDir" DirectoryRefId="INSTALLDIR" ComponentGroupName="NvsLibFiles" GenerateGuidsNow="true" SuppressFragments="false" OutputFile="$(IntermediateOutputPath)\nvslib.wxs" RunAsSeparateProcess="true" />

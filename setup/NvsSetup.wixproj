@@ -49,6 +49,11 @@
   <ItemGroup>
     <Content Include="packages.config" />
   </ItemGroup>
+  <ItemGroup>
+    <FilesToSign Include="$(TargetDir)$(TargetName)$(TargetExt)">
+      <Authenticode>Microsoft400</Authenticode>
+    </FilesToSign>
+  </ItemGroup>
   <Import Project="$(WixTargetsPath)" />
   <Import Project="PackageVersion.targets" />
   <Target Name="BeforeBuild">
@@ -62,7 +67,7 @@
       <TargetPdbName>$(TargetName)$(TargetPdbExt)</TargetPdbName>
     </PropertyGroup>
     <ItemGroup>
-      <FilesToSign Include="$(TargetDir)\$(TargetName)$(TargetExt)">
+      <FilesToSign Include="$(TargetDir)$(TargetName)$(TargetExt)">
         <Authenticode>Microsoft400</Authenticode>
       </FilesToSign>
     </ItemGroup>

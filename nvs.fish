@@ -7,8 +7,6 @@
 # This shell script merely bootstraps node.exe if necessary, then forwards
 # arguments to the main nvs.js script.
 
-echo Args are $argv
-
 set NVS_ROOT (dirname (realpath (status current-filename)))
 set NVS_OS (uname | sed 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/')
 
@@ -16,10 +14,6 @@ switch "$NVS_OS"
     case 'mingw64_nt*' 'msys_nt*'
         set NVS_OS 'win'
 end
-
-echo NVS_ROOT is $NVS_ROOT
-echo NVS_OS is $NVS_OS
-
 
 function nvs
 	# The NVS_HOME path may be overridden in the environment.
@@ -29,18 +23,15 @@ function nvs
 
  	# Generate 32 bits of randomness, to avoid clashing with concurrent executions.
  	set -gx NVS_POSTSCRIPT $NVS_HOME/nvs_tmp_(dd if=/dev/urandom count=1 2> /dev/null | cksum | cut -f1 -d" ").fish
-	echo NVS_POSTSCRIPT is $NVS_POSTSCRIPT
 
 	set -l NODE_EXE node
 	if test "$NVS_OS" = "win"
 		set NODE_EXE "node.exe"
 	end
 
-	echo NODE_EXE is $NODE_EXE
-
  	set -l NODE_PATH $NVS_HOME/cache/$NODE_EXE
 
-	if not test -f NODE_PATH
+	if not test -f $NODE_PATH
  		# Parse the bootstrap parameters from defaults.json. This isn't real JSON parsing so # 		# its extremely limited, but defaults.json should not be edited by the user anyway.
  		set -l NODE_VERSION (grep '"bootstrap" *:' "$NVS_ROOT/defaults.json" | sed -e 's/.*: *"//' -e 's/"[^\n]*//' -e 's/.*\///')
  		set -l NODE_REMOTE (grep '"bootstrap" *:' "$NVS_ROOT/defaults.json" | sed -e 's/.*: *"//' -e 's/"[^\n]*//' -e 's/\/.*//')
@@ -68,11 +59,11 @@ function nvs
  			set NODE_ARCH "x64"
  		end
  		set -l NODE_FULLNAME "node-v$NODE_VERSION-$NVS_OS-$NODE_ARCH"
- 		set -l NODE_URI "{$NODE_BASE_URI}v$NODE_VERSION/{$NODE_FULLNAME}$NODE_ARCHIVE_EXT"
+ 		set -l NODE_URI {$NODE_BASE_URI}v$NODE_VERSION/{$NODE_FULLNAME}$NODE_ARCHIVE_EXT
  		set -l NODE_ARCHIVE "$NVS_HOME/cache/$NODE_FULLNAME$NODE_ARCHIVE_EXT"
 
 		if not test -d "$NVS_HOME/cache"
-			eval mkdir -p "$NVS_HOME/cache"
+			mkdir -p "$NVS_HOME/cache"
 		end
 
 		echo "Downloading bootstrap node from $NODE_URI"
@@ -144,10 +135,8 @@ function nvs
 			set NVS_AUTO_DIRECTORY=$DIR
 		case "*"
 			# Forward args to the main JavaScript file.
-			echo Running index.js
 			eval "$NODE_PATH" "$NVS_ROOT/lib/index.js" "$argv"
 			set EXIT_CODE $status
-			echo Exit code is $EXIT_CODE
 	end
 
 	if test $EXIT_CODE = 2
@@ -159,94 +148,75 @@ function nvs
 	# Call the post-invocation script if it is present, then delete it.
 	# This allows the invocation to potentially modify the caller's environment (e.g. PATH)
 	if test -f "$NVS_POSTSCRIPT"
-		cat $NVS_POSTSCRIPT
 		source "$NVS_POSTSCRIPT"
-		eval rm "$NVS_POSTSCRIPT"
+		rm "$NVS_POSTSCRIPT"
 		set -e NVS_POSTSCRIPT
 	end
 
 	return $EXIT_CODE
 end
 
-# nvs() {
 
+function nvsudo
+	# Forward the current version path to the sudo environment.
+	set -l NVS_CURRENT (nvs which)
+	if test -n "$NVS_CURRENT"
+		set NVS_CURRENT (dirname "$NVS_CURRENT")
+	end
+	sudo "env NVS_CURRENT=$NVS_CURRENT" "$NVS_ROOT/nvs" $argv
+end
 
-
-
-
-# }
-
-# nvsudo() {
-# 	# Forward the current version path to the sudo environment.
-# 	local NVS_CURRENT=`nvs which`
-# 	if [ -n "${NVS_CURRENT}" ]; then
-# 		NVS_CURRENT=`dirname "${NVS_CURRENT}"`
-# 	fi
-# 	sudo "NVS_CURRENT=${NVS_CURRENT}" "${NVS_ROOT}/nvs" $*
-# }
-
-# # export our functions so that subshells and scripts can use them
-# case "$(ps -p $$)" in
-# 	*bash*)
-# 		export -f nvs nvsudo
-# 		;;
-# 	*ksh*)
-# 		# NOTE: for exports to work in ksh, this script has to be sourced from $ENV (usually ~/.kshrc)
-# 		typeset -xf nvs nvsudo
-# 		;;
-# esac
-
-# if [ ! "${NVS_OS}" = "win" ] && [ ! "${NVS_OS}" = "aix" ]; then
-# 	# Check if `tar` has xz support. Look for a minimum libarchive or gnutar version.
-# 	if [ -z "${NVS_USE_XZ}" ]; then
-# 		export LIBARCHIVE_VER="$(tar --version | sed -n "s/.*libarchive \([0-9][0-9]*\(\.[0-9][0-9]*\)*\).*/\1/p")"
-# 		if [ -n "${LIBARCHIVE_VER}" ]; then
-# 			LIBARCHIVE_VER="$(printf "%.3d%.3d%.3d" $(echo "${LIBARCHIVE_VER}" | sed "s/\\./ /g"))"
-# 			if [ $LIBARCHIVE_VER -ge 002008000 ]; then
-# 				export NVS_USE_XZ=1
-# 				if [ "${NVS_OS}" = "darwin" ]; then
-# 					export MACOS_VER="$(printf "%.3d%.3d%.3d" $(sw_vers -productVersion | sed "s/\\./ /g"))"
-# 					if [ $MACOS_VER -ge 010009000 ]; then
-# 						export NVS_USE_XZ=1
-# 					else
-# 						export NVS_USE_XZ=0
-# 					fi
-# 					unset MACOS_VER
-# 				fi
-# 			else
-# 				export NVS_USE_XZ=0
-# 			fi
-# 		else
-# 			LIBARCHIVE_VER="$(tar --version | sed -n "s/.*(GNU tar) \([0-9][0-9]*\(\.[0-9][0-9]*\)*\).*/\1/p")"
-# 			if [ -n "${LIBARCHIVE_VER}" ]; then
-# 				LIBARCHIVE_VER="$(printf "%.3d%.3d%.3d" $(echo "${LIBARCHIVE_VER}" | sed "s/\\./ /g"))"
-# 				if [ $LIBARCHIVE_VER -ge 001022000 ]; then
-# 					if command -v xz &> /dev/null ; then
-# 						export NVS_USE_XZ=1
-# 					else
-# 						export NVS_USE_XZ=0
-# 					fi
-# 				else
-# 					export NVS_USE_XZ=0
-# 				fi
-# 			fi
-# 		fi
-# 		unset LIBARCHIVE_VER
-# 	fi
-# fi
+if test "$NVS_OS" != "win"; and test "$NVS_OS" != "aix"
+	# Check if `tar` has xz support. Look for a minimum libarchive or gnutar version.
+	if test -z "$NVS_USE_XZ"
+		set -gx LIBARCHIVE_VER (tar --version | sed -n "s/.*libarchive \([0-9][0-9]*\(\.[0-9][0-9]*\)*\).*/\1/p")
+		if test -n "$LIBARCHIVE_VER"
+			set LIBARCHIVE_VER (printf "%.3d%.3d%.3d" (echo "$LIBARCHIVE_VER" | sed "s/\\./ /g"))
+			if test $LIBARCHIVE_VER -ge 002008000
+				set -gx NVS_USE_XZ 1
+				if test "$NVS_OS" = "darwin"
+					set -gx MACOS_VER (printf "%.3d%.3d%.3d" (sw_vers -productVersion | sed "s/\\./ /g"))
+					if $MACOS_VER -ge 010009000
+						set -gx NVS_USE_XZ 1
+					else
+						set -gx NVS_USE_XZ 0
+					end
+					set -gx MACOS_VER
+				end
+			else
+				set -gx NVS_USE_XZ 0
+			end
+		else
+			set -gx LIBARCHIVE_VER (tar --version | sed -n "s/.*(GNU tar) \([0-9][0-9]*\(\.[0-9][0-9]*\)*\).*/\1/p")
+			if test -n "$LIBARCHIVE_VER"
+				set LIBARCHIVE_VER (printf "%.3d%.3d%.3d" (echo "$LIBARCHIVE_VER" | sed "s/\\./ /g"))
+				if test $LIBARCHIVE_VER -ge 001022000
+					if command -v xz &> /dev/null
+						set -gx NVS_USE_XZ 1
+					else
+						set -gx NVS_USE_XZ 0
+					end
+				else
+					set -gx NVS_USE_XZ 0
+				end
+			end
+		end
+		set -e LIBARCHIVE_VER
+	end
+end
 
 # # If some version is linked as the default, begin by using that version.
-# if [ -d "${NVS_HOME}/default" ]; then
-# 	if [ -f "${NVS_HOME}/default/bin/node" ]; then
-# 		export PATH="${NVS_HOME}/default/bin:${PATH}"
-# 		unset NPM_CONFIG_PREFIX
-# 	elif [ -f "${NVS_HOME}/default/node" ]; then
-# 		export PATH="${NVS_HOME}/default:${PATH}"
-# 		unset NPM_CONFIG_PREFIX
-# 	fi
-# fi
+if test -d "$NVS_HOME/default"
+	if test -f "$NVS_HOME/default/bin/node"
+		fish_add_path -p "$NVS_HOME/default/bin"
+		set -e NPM_CONFIG_PREFIX
+	else if test -f "$NVS_HOME/default/node"
+		fish_add_path -p "$NVS_HOME/default"
+		set -e NPM_CONFIG_PREFIX
+	end
+end
 
 # # If sourced with parameters, invoke the function now with those parameters.
-# if [ -n "$*" -a -z "${NVS_EXECUTE}" ]; then
-# 	nvs $*
-# fi
+if test -n "$argv"; and test -z "$NVS_EXECUTE"
+	nvs $argv
+end
